@@ -1,0 +1,19 @@
+{
+  "defaultProvider": "claude-code",
+  "defaultModel": "claude-opus-5-5",
+  "cacheWarming": "off",
+  "defaultThinkingLevel": "high",
+  "showCacheMissNotices": true,
+  "compaction": {
+    "enabled": true,
+    "keepRecentTokens": 20000
+  },
+  "packages": [
+    "git:github.com/earendil-works/pi-claude-code"
+  ],
+  "enabledModels": [
+    "claude-code/claude-opus-5-5",
+    "claude-code/claude-sonnet-5-5",
+    "claude-code/claude-haiku-5-5"
+  ]
+}

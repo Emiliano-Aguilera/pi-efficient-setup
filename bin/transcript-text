@@ -1,0 +1,59 @@
+#!/usr/bin/env python3
+"""Print a Pi or Claude Code session log (.jsonl) as plain text, one line per message part.
+
+A session log holds whole tool results on single lines, so grep on the raw file
+returns huge lines. This prints `line-number role: text` with long parts cut, so
+the output can be searched: transcript-text FILE | grep -n -i -C2 'term'
+
+Usage: transcript-text FILE [--max N]   (N = characters kept per part, default 400; 0 = no cut)
+"""
+import json
+import sys
+
+args = sys.argv[1:]
+limit = 400
+if "--max" in args:
+    i = args.index("--max")
+    limit = int(args[i + 1])
+    del args[i : i + 2]
+if len(args) != 1:
+    sys.exit(__doc__)
+
+
+def cut(text):
+    text = " ".join(str(text).split())
+    return text if not limit or len(text) <= limit else text[:limit] + f" …[+{len(text) - limit} chars]"
+
+
+def parts(content):
+    if isinstance(content, str):
+        yield "", content
+        return
+    for block in content or []:
+        if not isinstance(block, dict):
+            continue
+        kind = block.get("type")
+        if kind == "text":
+            yield "", block.get("text", "")
+        elif kind in ("toolCall", "tool_use"):
+            yield "call ", f"{block.get('name')} {json.dumps(block.get('arguments', block.get('input')), ensure_ascii=False)}"
+        elif kind == "tool_result":
+            yield "result ", "".join(text for _, text in parts(block.get("content")))
+
+
+with open(args[0], encoding="utf-8", errors="replace") as log:
+    for number, line in enumerate(log, 1):
+        try:
+            record = json.loads(line)
+        except ValueError:
+            continue
+        if record.get("type") == "compaction":
+            print(f"{number} compaction-summary: {cut(record.get('summary', ''))}")
+            continue
+        message = record.get("message")
+        if not isinstance(message, dict):
+            continue
+        role = message.get("role") or record.get("type")
+        for prefix, text in parts(message.get("content")):
+            if text.strip():
+                print(f"{number} {role} {prefix}: {cut(text)}".replace(" :", ":", 1))
